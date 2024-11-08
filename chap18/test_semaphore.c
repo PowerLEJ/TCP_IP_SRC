@@ -1,25 +1,24 @@
 #include <unistd.h>
 #include <stdio.h>
 #include <pthread.h> // 쓰레드
-
-struct profile
-{
-    int age;
-    double height;
-};
+#include <semaphore.h> // 세마포어
 
 void* thread_main(void *arg);
 void* thread_main_2(void *arg);
-void* thread_profile(void *arg);
+void* thread_main_3(void *arg);
+
+static sem_t sem_one;
+static sem_t sem_two;
+static sem_t sem_thr;
 
 int main(int argc, char *argv[])
 {
     pthread_t t_id, t_id_2, t_id_3;
     int thread_param = 5;
 
-    struct profile student;
-    student.age = 15;
-    student.height = 173;
+    sem_init(&sem_one, 0, 1); // sem_init(주소값, 0, 세마포어 초기값 설정)
+	sem_init(&sem_two, 0, 0);
+    sem_init(&sem_thr, 0, 0);
 
     // pthread_create(스레드ID 주소값, NULL, 함수명, 넘길 파라미터 주소값);
     if(pthread_create(&t_id, NULL, thread_main, (void*)&thread_param) != 0) {
@@ -32,19 +31,17 @@ int main(int argc, char *argv[])
         return -1;
     }
 
-    if(pthread_create(&t_id_3, NULL, thread_profile, (void*)&student) != 0) {
+    if(pthread_create(&t_id_3, NULL, thread_main_3, (void*)&thread_param) != 0) {
         puts("pthread_create() error");
         return -1;
     }
-    
-    for (int i = 0; i < 5; i++)
-    {
-        sleep(1);
-        puts("running main");
-    }
-    
-    sleep(5);
+
+    sleep(6);
     puts("end of main");
+
+    sem_destroy(&sem_one);
+	sem_destroy(&sem_two);
+    sem_destroy(&sem_thr);
 
     return 0;
 }
@@ -55,7 +52,9 @@ void* thread_main(void *arg) // 넘겨진 파라미터 주소값
     for (int i = 0; i < cnt; i++)
     {
         sleep(1);
-        puts("running thread 1");
+        sem_wait(&sem_one); // - 감소
+        puts("running thread 2");
+        sem_post(&sem_two); // + 증가
     }
     
     return NULL;
@@ -67,19 +66,24 @@ void* thread_main_2(void *arg) // 넘겨진 파라미터 주소값
     for (int i = 0; i < cnt; i++)
     {
         sleep(1);
-        puts("running thread 2");
+        sem_wait(&sem_two); // - 감소
+        puts("running thread 1");
+        sem_post(&sem_thr); // + 증가
     }
     
     return NULL;
 }
 
-void* thread_profile(void *arg)
+void* thread_main_3(void *arg) // 넘겨진 파라미터 주소값
 {
-    /*
-    학생의 나이는 15살이고, 키는 173.0입니다.
-    */
-    struct profile student = *((struct profile*)arg); // 구조체로 캐스팅
-    printf("학생의 나이는 %d살이고, 키는 %.1lf입니다.\n", student.age, student.height);
-
+    int cnt = *((int*)arg); // 캐스트연산해서 int로
+    for (int i = 0; i < cnt; i++)
+    {
+        sleep(1);
+        sem_wait(&sem_thr); // - 감소
+        puts("running thread 3");
+        sem_post(&sem_one); // + 증가
+    }
+    
     return NULL;
 }
